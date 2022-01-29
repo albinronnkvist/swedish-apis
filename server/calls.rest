@@ -1,0 +1,27 @@
+GET http://localhost:5000/users
+
+###
+
+GET http://localhost:5000/users/61f558775eb34c863c800eb6
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFiYmUyIiwiZW1haWwiOiJhbGJpbjJAZ21haWwuY29tIiwiY3JlYXRlZEF0IjoiMjAyMi0wMS0yOVQxNTowODozOS44MjRaIiwiaWF0IjoxNjQzNDcwMzI1fQ.7ISPBQZcCIi-95sC0AROX5hrXfiTwZgsNjut93RWl2g
+
+###
+
+POST http://localhost:5000/users/register
+Content-Type: application/json
+
+{
+  "username": "Abbe2",
+  "email": "albin2@gmail.com",
+  "password": "abc123"
+}
+
+###
+
+POST http://localhost:5000/users/login
+Content-Type: application/json
+
+{
+  "username": "abbe2",
+  "password": "abc123"
+}
