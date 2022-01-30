@@ -2,3 +2,5 @@
 server/.env
 
 server/node_modules/
+
+server/calls.rest
