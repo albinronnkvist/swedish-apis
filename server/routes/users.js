@@ -9,31 +9,46 @@ const auth = require('../auth/auth')
 
 const mongoose = require('mongoose')
 
-// GET api/users (auth)
-router.get("/", async (req, res) => {
+async function removeUser(req, res) {
+  try {
+    await req.user.remove()
+    res.status(204).send()
+  }
+  catch (err) {
+    return res.status(500).json({ error: err.message })
+  }
+}
+
+
+
+// ******
+// ROUTES
+// ******
+
+// GET api/users
+router.get("/", auth.auth, async (req, res) => {
   // Query params: ?username=albin = req.query.username
 
   try {
-    const users = await User.find({}, {password: 0})
-    res.status(200).json(users)
+    if(req.auth.role === "superadmin" || req.auth.role === "admin") {
+      const users = await User.find({}, {password: 0})
+      res.status(200).json({ data: users })
+    }
+    else {
+      res.status(403).json({ error: 'Access denied' })
+    }
   } 
   catch {
     res.status(500).send()
   }
 })
 
-// POST api/users/register (auth role)
+// POST api/users/register
 router.post("/register", async (req, res) => {
-  // Check if username and email is available
-  if(await User.exists({ username: req.body.username.toLowerCase() })) {
-    return res.status(409).json({ message: 'Username already exists' })
-  }
-  if(await User.exists({ email: req.body.email.toLowerCase() })) {
-    return res.status(409).json({ message: 'Email already exists' })
-  }
-
-  // Create new user
   try {
+    if(!req.body.password || (typeof req.body.password !== 'string')) {
+      return res.status(400).json({ error: 'Password required' })
+    }
     const salt = await bcrypt.genSalt()
     const passwordHash = await bcrypt.hash(req.body.password, salt)
 
@@ -42,41 +57,44 @@ router.post("/register", async (req, res) => {
       email: req.body.email,
       password: passwordHash,
       role: req.body.role
-    })
+    })    
 
-    try {
-      const newUser = await user.save()
+    const newUser = await user.save()
 
-      const data = {
-        username: newUser.username,
-        email: newUser.email,
-        role: newUser.role
-      }
-
-      res.status(201).json({ message: 'User created', data })
+    const data = {
+      username: newUser.username,
+      email: newUser.email,
+      role: newUser.role
     }
-    catch (err)
-    {
-      res.status(400).json({ message: err.message })
-    }
-    
+
+    return res.status(201).json({ message: 'User created', data: data })
   }
-  catch
-  {
-    res.status(500).send()
+  catch (err) {
+    if(err.code === 11000) {
+      return res.status(400).json({ error: 'Username or Email already exists' })
+    }
+    else {
+      return res.status(400).json({ error: err.message })
+    }
   }
 })
 
 // POST api/users/login
 router.post("/login", async (req, res) => {
-  const user = await User.findOne({ username: req.body.username.toLowerCase() })
-
-  if(user == null) {
-    return res.status(404).json({ message: 'Login failed, wrong username or password' })
-  }
-
-  // Verify password
   try {
+    if(!req.body.username || (typeof req.body.username !== 'string')) {
+      return res.status(400).json({ error: 'Username required' })
+    }
+    if(!req.body.password || (typeof req.body.password !== 'string')) {
+      return res.status(400).json({ error: 'Password required' })
+    }
+
+    let user = await User.findOne({ username: req.body.username.toLowerCase() })
+    if(user == null) {
+      return res.status(404).json({ error: 'Login failed, wrong username or password' })
+    }
+
+    // Verify password, create and send token
     if(await bcrypt.compare(req.body.password, user.password)) {
       jwtUser = { 
         _id: user._id,
@@ -87,14 +105,14 @@ router.post("/login", async (req, res) => {
       }
 
       const token = jwt.sign(jwtUser, process.env.SECRET_TOKEN, { expiresIn: '30m' })
-      res.status(200).json({ jwt: token, message: 'Login successful' })
+      return res.status(200).json({ jwt: token, message: 'Login successful' })
     } 
     else {
-      res.status(401).json({ message: 'Login failed, wrong username or password' })
+      return res.status(401).json({ error: 'Login failed, wrong username or password' })
     }
   }
-  catch {
-    res.status(500).send()
+  catch (err) {
+    return res.status(400).json({ error: err.message })
   }
 })
 
@@ -103,12 +121,22 @@ router.post("/login", async (req, res) => {
 // DYNAMIC ROUTES
 // **************
 // GET api/users/:id
-// PUT api/users/:id (auth + role)
-// DELETE api/users/:id (auth + role)
+// PUT api/users/:id
+// DELETE api/users/:id
 router
   .route("/:id")
-  .get((req, res) => {
-    res.status(200).json(req.user)
+  .get(auth.auth, (req, res) => {
+    if(req.auth.role === "superadmin" || req.auth.role === "admin") {
+      res.status(200).json({ data: req.user })
+    }
+    else {
+      if(req.auth._id === req.user._id.toString()) {
+        res.status(200).json({ data: req.user })
+      }
+      else {
+        res.status(403).json({ error: 'Access denied' })
+      }
+    }
   })
   .patch(auth.auth, (req, res) => {
     res.send(`Update user with id: ${req.params.id}`)
@@ -128,7 +156,7 @@ router
           await removeUser(req, res)
         }
         else {
-          res.status(403).json({ message: 'Access denied' })
+          res.status(403).json({ error: 'Access denied' })
         }
       }
     }
@@ -138,7 +166,7 @@ router
         await removeUser(req, res)
       }
       else {
-        res.status(403).json({ message: 'Access denied' })
+        res.status(403).json({ error: 'Access denied' })
       }
     }
   })
@@ -146,32 +174,22 @@ router
 // When id parameter is used: get a user from db
 router.param("id", async (req, res, next, id) => {
   if(!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    return res.status(404).json({ message: 'User not found' })
+    return res.status(404).json({ error: 'User not found' })
   }
 
   let user
   try {
     user = await User.findById(req.params.id, {password: 0})
     if(user == null) {
-      return res.status(404).json({ message: 'User not found' })
+      return res.status(404).json({ error: 'User not found' })
     }
   }
   catch (err) {
-    return res.status(500).json({ message: err.message })
+    return res.status(500).json({ error: err.message })
   }
 
   req.user = user
   next()
 })
-
-async function removeUser(req, res) {
-  try {
-    await req.user.remove()
-    res.status(204).send()
-  }
-  catch (err) {
-    return res.status(500).json({ message: err.message })
-  }
-}
 
 module.exports = router

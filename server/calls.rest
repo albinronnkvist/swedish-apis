@@ -1,8 +1,10 @@
 GET http://localhost:5000/users
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2MWY2OTUwMTUyN2Y4ZmYxZTYzZDU1ZWEiLCJ1c2VybmFtZSI6ImFsYmludXNlcjUiLCJlbWFpbCI6ImFsYmludXNlcjVAZ21haWwuY29tIiwicm9sZSI6InVzZXIiLCJjcmVhdGVkQXQiOiIyMDIyLTAxLTMwVDEzOjM5OjEzLjUzMFoiLCJpYXQiOjE2NDM1NTY1ODMsImV4cCI6MTY0MzU1ODM4M30.XrB8QwLHQ1lMVJL-amlOtzL63kb4Lqab4QMUiUppLb0
 
 ###
 
-GET http://localhost:5000/users/61f67732b69953a568bd9e69
+GET http://localhost:5000/users/61f684a37e35d17ba50976e6
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2MWY2OTUwMTUyN2Y4ZmYxZTYzZDU1ZWEiLCJ1c2VybmFtZSI6ImFsYmludXNlcjUiLCJlbWFpbCI6ImFsYmludXNlcjVAZ21haWwuY29tIiwicm9sZSI6InVzZXIiLCJjcmVhdGVkQXQiOiIyMDIyLTAxLTMwVDEzOjM5OjEzLjUzMFoiLCJpYXQiOjE2NDM1NTY1ODMsImV4cCI6MTY0MzU1ODM4M30.XrB8QwLHQ1lMVJL-amlOtzL63kb4Lqab4QMUiUppLb0
 
 ###
 
@@ -21,8 +23,8 @@ POST http://localhost:5000/users/register
 Content-Type: application/json
 
 {
-  "username": "albinuser",
-  "email": "albinuser@gmail.com",
+  "username": "albinuser5",
+  "email": "albinuser55@gmail.com",
   "password": "abc123",
   "role": "user"
 }
@@ -33,6 +35,6 @@ POST http://localhost:5000/users/login
 Content-Type: application/json
 
 {
-  "username": "albinadmin2",
+  "username": "albinuser5",
   "password": "abc123"
 }
