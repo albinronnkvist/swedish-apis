@@ -176,14 +176,16 @@ router
     if(req.body.email) {
       req.user.email = req.body.email
     }
+
+    let preRole = req.user.role
     if(req.body.role) {
       req.user.role = req.body.role
     }
 
     try {
-      // If superadmin: edit yourself, other admins and other users
+      // If superadmin: edit yourself, other admins and other users. But not other superusers.
       if(req.auth.role === "superadmin") {
-        if((req.user.role === "superadmin") && (req.auth._id !== req.user._id.toString())) {
+        if((preRole === "superadmin") && (req.auth._id !== req.user._id.toString())) {
           return res.status(403).json({ error: 'Access denied' })
         }
         else {
@@ -197,7 +199,7 @@ router
         if(req.user.role === "superadmin") {
           return res.status(403).json({ error: 'Access denied' })
         }
-        else if(req.user.role === "admin" && (req.auth._id !== req.user._id.toString())) {
+        else if(preRole === "admin" && (req.auth._id !== req.user._id.toString())) {
           return res.status(403).json({ error: 'Access denied' })
         }
         else {
@@ -228,7 +230,7 @@ router
     }
   })
   .delete(auth.auth, async (req, res) => {
-    // If superadmin: delete any admin or user
+    // If superadmin: delete any admin or user, but not other superadmins.
     if(req.auth.role === "superadmin") {
       if(req.user.role === "superadmin" && (req.auth._id !== req.user._id.toString())) {
         return res.status(403).json({ error: 'Access denied' })
