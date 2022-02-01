@@ -181,8 +181,39 @@ router
     }
 
     try {
-      const updatedUser = await req.user.save()
-      res.status(204).send({ user: updatedUser })
+      // If superadmin: edit yourself, other admins and other users
+      if(req.auth.role === "superadmin") {
+        if((req.user.role === "superadmin") && (req.auth._id !== req.user._id.toString())) {
+          return res.status(403).json({ error: 'Access denied' })
+        }
+        else {
+          await req.user.save()
+          return res.status(204).send()
+        }
+      }
+      // If admin: edit yourself and others users
+      else if(req.auth.role === "admin") {
+        if(req.user.role === "superadmin") {
+          return res.status(403).json({ error: 'Access denied' })
+        }
+        else if(req.user.role === "admin" && (req.auth._id !== req.user._id.toString())) {
+          return res.status(403).json({ error: 'Access denied' })
+        }
+        else {
+          await req.user.save()
+          return res.status(204).send()
+        }
+      }
+      // If user: edit only yourself
+      else {
+        if((req.user.role === "superadmin") || (req.user.role === "admin") || (req.auth._id !== req.user._id.toString())) {
+          return res.status(403).json({ error: 'Access denied' })
+        }
+        else {
+          await req.user.save()
+          return res.status(204).send()
+        }
+      }
     } 
     catch (err) {
       return res.status(400).json({ error: err.message })
@@ -191,7 +222,12 @@ router
   .delete(auth.auth, async (req, res) => {
     // If superadmin: delete any admin or user
     if(req.auth.role === "superadmin") {
-      await removeUser(req, res)
+      if(req.user.role === "superadmin" && (req.auth._id !== req.user._id.toString())) {
+        return res.status(403).json({ error: 'Access denied' })
+      }
+      else {
+        await removeUser(req, res)
+      }
     }
     // If admin: delete users only
     else if(req.auth.role === "admin") {
@@ -203,7 +239,7 @@ router
           await removeUser(req, res)
         }
         else {
-          res.status(403).json({ error: 'Access denied' })
+          return res.status(403).json({ error: 'Access denied' })
         }
       }
     }
@@ -213,7 +249,7 @@ router
         await removeUser(req, res)
       }
       else {
-        res.status(403).json({ error: 'Access denied' })
+        return res.status(403).json({ error: 'Access denied' })
       }
     }
   })
