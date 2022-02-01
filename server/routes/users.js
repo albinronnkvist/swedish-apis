@@ -169,7 +169,7 @@ router
       }
     }
   })
-  .patch(auth.auth, (req, res) => {
+  .patch(auth.auth, async (req, res) => {
     if(req.body.username) {
       req.user.username = req.body.username
     }
