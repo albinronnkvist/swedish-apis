@@ -170,7 +170,23 @@ router
     }
   })
   .patch(auth.auth, (req, res) => {
-    res.send(`Update user with id: ${req.params.id}`)
+    if(req.body.username) {
+      req.user.username = req.body.username
+    }
+    if(req.body.email) {
+      req.user.email = req.body.email
+    }
+    if(req.body.role) {
+      req.user.role = req.body.role
+    }
+
+    try {
+      const updatedUser = await req.user.save()
+      res.status(204).send({ user: updatedUser })
+    } 
+    catch (err) {
+      return res.status(400).json({ error: err.message })
+    }
   })
   .delete(auth.auth, async (req, res) => {
     // If superadmin: delete any admin or user
