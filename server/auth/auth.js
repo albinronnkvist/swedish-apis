@@ -18,3 +18,22 @@ module.exports.auth = function(req, res, next) {
     next()
   })
 }
+
+module.exports.token = function(req, res, next) {
+  const authHeader = req.headers['authorization']
+  const token = authHeader && authHeader.split(' ')[1]
+
+  if(token == null) {
+    req.token = null
+  }
+
+  jwt.verify(token, process.env.SECRET_TOKEN, (err, user) => {
+    if(err) {
+      req.token = null
+    }
+
+    req.token = user
+  })
+
+  next()
+}

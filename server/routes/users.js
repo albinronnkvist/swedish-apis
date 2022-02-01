@@ -27,12 +27,25 @@ async function removeUser(req, res) {
 
 // GET api/users
 router.get("/", auth.auth, async (req, res) => {
-  // Query params: ?username=albin = req.query.username
-
   try {
     if(req.auth.role === "superadmin" || req.auth.role === "admin") {
-      const users = await User.find({}, {password: 0})
-      res.status(200).json({ data: users })
+      let users
+      if(req.query.username || req.query.role) {
+        if(!req.query.username) {
+          users = await User.find({ role: req.query.role }, {password: 0}).sort({ username: 1 })
+        }
+        else if(!req.query.role) {
+          users = await User.find({ username: { $regex: req.query.username } }, {password: 0}).sort({ username: 1, role: 1 })
+        }
+        else {
+          users = await User.find({ username: { $regex: req.query.username }, role: req.query.role }, {password: 0}).sort({ username: 1, role: 1 })
+        }
+      }
+      else {
+        users = await User.find({}, {password: 0}).sort({ username: 1, role: 1 })
+      }
+
+      res.status(200).json({ users: users })
     }
     else {
       res.status(403).json({ error: 'Access denied' })
@@ -44,11 +57,27 @@ router.get("/", auth.auth, async (req, res) => {
 })
 
 // POST api/users/register
-router.post("/register", async (req, res) => {
+router.post("/register", auth.token, async (req, res) => {
+  if(!req.body.password || (typeof req.body.password !== 'string')) {
+    return res.status(400).json({ error: 'Password required' })
+  }
+
   try {
-    if(!req.body.password || (typeof req.body.password !== 'string')) {
-      return res.status(400).json({ error: 'Password required' })
+    let role
+    if(req.token != null && (req.token.role === "superadmin" || req.token.role === "admin")) {
+      if(req.body.role === "superadmin") {
+        if(req.token.role === "superadmin") {
+          role = req.body.role
+        } else {
+          return res.status(403).json({ error: 'Access denied. You have to be a super admin to create another super admin.' })
+        }
+      } else {
+        role = req.body.role
+      }
+    } else {
+      role = "user"
     }
+
     const salt = await bcrypt.genSalt()
     const passwordHash = await bcrypt.hash(req.body.password, salt)
 
@@ -56,18 +85,18 @@ router.post("/register", async (req, res) => {
       username: req.body.username,
       email: req.body.email,
       password: passwordHash,
-      role: req.body.role
+      role: role
     })    
 
     const newUser = await user.save()
 
-    const data = {
+    const userDto = {
       username: newUser.username,
       email: newUser.email,
       role: newUser.role
     }
 
-    return res.status(201).json({ message: 'User created', data: data })
+    return res.status(201).json({ message: 'User created', user: userDto })
   }
   catch (err) {
     if(err.code === 11000) {
@@ -96,7 +125,7 @@ router.post("/login", async (req, res) => {
 
     // Verify password, create and send token
     if(await bcrypt.compare(req.body.password, user.password)) {
-      jwtUser = { 
+      claims = { 
         _id: user._id,
         username: user.username, 
         email: user.email,
@@ -104,8 +133,8 @@ router.post("/login", async (req, res) => {
         createdAt: user.createdAt
       }
 
-      const token = jwt.sign(jwtUser, process.env.SECRET_TOKEN, { expiresIn: '30m' })
-      return res.status(200).json({ jwt: token, message: 'Login successful' })
+      const token = jwt.sign(claims, process.env.SECRET_TOKEN, { expiresIn: '30m' })
+      return res.status(200).json({ token: token, message: 'Login successful' })
     } 
     else {
       return res.status(401).json({ error: 'Login failed, wrong username or password' })
@@ -117,9 +146,11 @@ router.post("/login", async (req, res) => {
 })
 
 
+
 // **************
 // DYNAMIC ROUTES
 // **************
+
 // GET api/users/:id
 // PUT api/users/:id
 // DELETE api/users/:id
@@ -127,11 +158,11 @@ router
   .route("/:id")
   .get(auth.auth, (req, res) => {
     if(req.auth.role === "superadmin" || req.auth.role === "admin") {
-      res.status(200).json({ data: req.user })
+      res.status(200).json({ user: req.user })
     }
     else {
       if(req.auth._id === req.user._id.toString()) {
-        res.status(200).json({ data: req.user })
+        res.status(200).json({ user: req.user })
       }
       else {
         res.status(403).json({ error: 'Access denied' })
@@ -171,15 +202,20 @@ router
     }
   })
 
-// When id parameter is used: get a user from db
+
+
+// **********
+// MIDDLEWARE
+// **********
+// When an id parameter is used: get a user from db
 router.param("id", async (req, res, next, id) => {
-  if(!mongoose.Types.ObjectId.isValid(req.params.id)) {
+  if(!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(404).json({ error: 'User not found' })
   }
 
   let user
   try {
-    user = await User.findById(req.params.id, {password: 0})
+    user = await User.findById(id, {password: 0})
     if(user == null) {
       return res.status(404).json({ error: 'User not found' })
     }

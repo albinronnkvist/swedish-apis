@@ -21,6 +21,7 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
+    minLength: [8, "Password too short, minimum 1 character"],
     required: [true, "Password required"]
   },
   role: {
@@ -30,9 +31,16 @@ const userSchema = new mongoose.Schema({
       message: '{VALUE} is not supported'
     },
     lowercase: true,
-    required: [true, "Role required"]
+    required: false,
+    default: "user"
   },
   createdAt: {
+    type: Date,
+    immutable: true,
+    required: true,
+    default: Date.now
+  },
+  updatedAt: {
     type: Date,
     required: true,
     default: Date.now
