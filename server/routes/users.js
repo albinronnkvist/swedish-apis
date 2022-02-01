@@ -187,6 +187,7 @@ router
           return res.status(403).json({ error: 'Access denied' })
         }
         else {
+          req.user.updatedAt = Date.now()
           await req.user.save()
           return res.status(204).send()
         }
@@ -200,6 +201,7 @@ router
           return res.status(403).json({ error: 'Access denied' })
         }
         else {
+          req.user.updatedAt = Date.now()
           await req.user.save()
           return res.status(204).send()
         }
@@ -210,13 +212,19 @@ router
           return res.status(403).json({ error: 'Access denied' })
         }
         else {
+          req.user.updatedAt = Date.now()
           await req.user.save()
           return res.status(204).send()
         }
       }
     } 
     catch (err) {
-      return res.status(400).json({ error: err.message })
+      if(err.code === 11000) {
+        return res.status(400).json({ error: 'Username or Email already exists' })
+      }
+      else {
+        return res.status(400).json({ error: err.message })
+      }   
     }
   })
   .delete(auth.auth, async (req, res) => {
