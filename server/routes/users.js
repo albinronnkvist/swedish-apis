@@ -8,7 +8,13 @@ const User = require('../models/user')
 const auth = require('../auth/auth')
 
 const mongoose = require('mongoose')
+const userValidation = require('../validations/userValidations')
 
+
+
+// **************
+// COMMON METHODS
+// **************
 async function removeUser(req, res) {
   try {
     await req.user.remove()
@@ -32,17 +38,17 @@ router.get("/", auth.auth, async (req, res) => {
       let users
       if(req.query.username || req.query.role) {
         if(!req.query.username) {
-          users = await User.find({ role: req.query.role }, {password: 0}).sort({ username: 1 })
+          users = await User.findByRole(req.query.role)
         }
         else if(!req.query.role) {
-          users = await User.find({ username: { $regex: req.query.username } }, {password: 0}).sort({ username: 1, role: 1 })
+          users = await User.findByUsername(req.query.username)
         }
         else {
-          users = await User.find({ username: { $regex: req.query.username }, role: req.query.role }, {password: 0}).sort({ username: 1, role: 1 })
+          users = await User.findByUsernameAndRole(req.query.username, req.query.role)
         }
       }
       else {
-        users = await User.find({}, {password: 0}).sort({ username: 1, role: 1 })
+        users = await User.findAll()
       }
 
       res.status(200).json({ users: users })
@@ -58,26 +64,19 @@ router.get("/", auth.auth, async (req, res) => {
 
 // POST api/users/register
 router.post("/register", auth.token, async (req, res) => {
-  if(!req.body.password || (typeof req.body.password !== 'string')) {
-    return res.status(400).json({ error: 'Password required' })
-  }
+  const { error } = userValidation.registerValidation(req.body)
+  if(error) return res.status(400).json({ error: error.details[0].message })
+
+  const usernameExist = await User.findOneByUsername(req.body.username)
+  if(usernameExist) return res.status(409).json({ error: 'Username already exists' })
+
+  const emailExist = await User.findOneByEmail(req.body.email)
+  if(emailExist) return res.status(409).json({ error: 'Email already exists' })
+
+  const role = await userValidation.registerRoleValidation(req)
+  if(role === "deny") return res.status(403).json({ error: 'Access denied' })
 
   try {
-    let role
-    if(req.token != null && (req.token.role === "superadmin" || req.token.role === "admin")) {
-      if(req.body.role === "superadmin") {
-        if(req.token.role === "superadmin") {
-          role = req.body.role
-        } else {
-          return res.status(403).json({ error: 'Access denied. You have to be a super admin to create another super admin.' })
-        }
-      } else {
-        role = req.body.role
-      }
-    } else {
-      role = "user"
-    }
-
     const salt = await bcrypt.genSalt()
     const passwordHash = await bcrypt.hash(req.body.password, salt)
 
@@ -99,29 +98,18 @@ router.post("/register", auth.token, async (req, res) => {
     return res.status(201).json({ message: 'User created', user: userDto })
   }
   catch (err) {
-    if(err.code === 11000) {
-      return res.status(400).json({ error: 'Username or Email already exists' })
-    }
-    else {
-      return res.status(400).json({ error: err.message })
-    }
+    return res.status(400).json({ error: err.message })
   }
 })
 
 // POST api/users/login
 router.post("/login", async (req, res) => {
-  try {
-    if(!req.body.username || (typeof req.body.username !== 'string')) {
-      return res.status(400).json({ error: 'Username required' })
-    }
-    if(!req.body.password || (typeof req.body.password !== 'string')) {
-      return res.status(400).json({ error: 'Password required' })
-    }
+  const { error } = userValidation.loginValidation(req.body)
+  if(error) return res.status(400).json({ error: error.details[0].message })
 
-    let user = await User.findOne({ username: req.body.username.toLowerCase() })
-    if(user == null) {
-      return res.status(404).json({ error: 'Login failed, wrong username or password' })
-    }
+  try {
+    let user = await User.findOneByUsername(req.body.username)
+    if(user == null) return res.status(404).json({ error: 'Login failed, wrong username or password' })
 
     // Verify password, create and send token
     if(await bcrypt.compare(req.body.password, user.password)) {
@@ -158,23 +146,48 @@ router
   .route("/:id")
   .get(auth.auth, (req, res) => {
     if(req.auth.role === "superadmin" || req.auth.role === "admin") {
-      res.status(200).json({ user: req.user })
+      return res.status(200).json({ user: req.user })
     }
     else {
       if(req.auth._id === req.user._id.toString()) {
-        res.status(200).json({ user: req.user })
+        return res.status(200).json({ user: req.user })
       }
       else {
-        res.status(403).json({ error: 'Access denied' })
+        return res.status(403).json({ error: 'Access denied' })
       }
     }
   })
   .patch(auth.auth, async (req, res) => {
+    const { error } = userValidation.patchValidation(req.body)
+    if(error) return res.status(400).json({ error: error.details[0].message })
+
     if(req.body.username) {
-      req.user.username = req.body.username
+      if(req.body.username !== req.user.username) {
+        const usernameExist = await User.findOneByUsername(req.body.username)
+        if(usernameExist) {
+          return res.status(409).json({ error: 'Username already exists' })
+        }
+        else {
+          req.user.username = req.body.username
+        }
+      }
+      else {
+        req.user.username = req.body.username
+      }
     }
     if(req.body.email) {
-      req.user.email = req.body.email
+      if(req.body.email !== req.user.email) {
+        const emailExist = await User.findOneByEmail(req.body.email)
+        if(emailExist) {
+          return res.status(409).json({ error: 'Email already exists' })
+        }
+        else {
+          req.user.email = req.body.email
+        }
+      }
+      else {
+        req.user.email = req.body.email
+      } 
     }
 
     let preRole = req.user.role

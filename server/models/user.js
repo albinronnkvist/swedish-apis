@@ -4,8 +4,8 @@ const validator = require('validator')
 const userSchema = new mongoose.Schema({
   username: {
     type: String,
-    minLength: [1, "Username too short, minimum 1 character"],
-    maxLength: [30, "Username too long, maximum 30 characters"],
+    minlength: [1, "Username too short, minimum 1 character"],
+    maxlength: [30, "Username too long, maximum 30 characters"],
     trim: true,
     lowercase: true,
     unique: true,
@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    minLength: [8, "Password too short, minimum 1 character"],
+    minlength: [8, "Password too short, minimum 1 character"],
     required: [true, "Password required"]
   },
   role: {
@@ -46,5 +46,29 @@ const userSchema = new mongoose.Schema({
     default: Date.now
   }
 })
+
+userSchema.statics.findAll = function() {
+  return this.find({}, {password: 0}).sort({ username: 1, role: 1 })
+}
+
+userSchema.statics.findOneByUsername = function(username) {
+  return this.findOne({ username: username.toLowerCase() })
+}
+
+userSchema.statics.findOneByEmail = function(email) {
+  return this.findOne({ email: email.toLowerCase() })
+}
+
+userSchema.statics.findByUsername = function(username) {
+  return this.find({ username: { $regex: username } }, {password: 0}).sort({ username: 1, role: 1 })
+}
+
+userSchema.statics.findByRole = function(role) {
+  return this.find({ role: role }, {password: 0}).sort({ username: 1 })
+}
+
+userSchema.statics.findByUsernameAndRole = function(username, role) {
+  return this.find({ username: { $regex: username }, role: role }, {password: 0}).sort({ username: 1, role: 1 })
+}
 
 module.exports = mongoose.model('User', userSchema)
