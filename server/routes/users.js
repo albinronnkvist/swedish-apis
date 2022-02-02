@@ -67,7 +67,7 @@ router.post("/register", auth.token, async (req, res) => {
   const { error } = userValidation.registerValidation(req.body)
   if(error) {
     let errors = error.details.map(e => e.message)
-    return res.status(400).json({ errors: errors })
+    return res.status(400).json({ error: errors })
   }
 
   const usernameExist = await User.findOneByUsername(req.body.username)
@@ -110,7 +110,7 @@ router.post("/login", async (req, res) => {
   const { error } = userValidation.loginValidation(req.body)
   if(error) {
     let errors = error.details.map(e => e.message)
-    return res.status(400).json({ errors: errors })
+    return res.status(400).json({ error: errors })
   }
 
   try {
@@ -167,7 +167,7 @@ router
     const { error } = userValidation.patchValidation(req.body)
     if(error) {
       let errors = error.details.map(e => e.message)
-      return res.status(400).json({ errors: errors })
+      return res.status(400).json({ error: errors })
     }
 
     if(req.body.username) {
