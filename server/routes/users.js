@@ -65,7 +65,10 @@ router.get("/", auth.auth, async (req, res) => {
 // POST api/users/register
 router.post("/register", auth.token, async (req, res) => {
   const { error } = userValidation.registerValidation(req.body)
-  if(error) return res.status(400).json({ error: error.details[0].message })
+  if(error) {
+    let errors = error.details.map(e => e.message)
+    return res.status(400).json({ errors: errors })
+  }
 
   const usernameExist = await User.findOneByUsername(req.body.username)
   if(usernameExist) return res.status(409).json({ error: 'Username already exists' })
@@ -105,7 +108,10 @@ router.post("/register", auth.token, async (req, res) => {
 // POST api/users/login
 router.post("/login", async (req, res) => {
   const { error } = userValidation.loginValidation(req.body)
-  if(error) return res.status(400).json({ error: error.details[0].message })
+  if(error) {
+    let errors = error.details.map(e => e.message)
+    return res.status(400).json({ errors: errors })
+  }
 
   try {
     let user = await User.findOneByUsername(req.body.username)
@@ -140,7 +146,7 @@ router.post("/login", async (req, res) => {
 // **************
 
 // GET api/users/:id
-// PUT api/users/:id
+// PATCH api/users/:id
 // DELETE api/users/:id
 router
   .route("/:id")
@@ -159,7 +165,10 @@ router
   })
   .patch(auth.auth, async (req, res) => {
     const { error } = userValidation.patchValidation(req.body)
-    if(error) return res.status(400).json({ error: error.details[0].message })
+    if(error) {
+      let errors = error.details.map(e => e.message)
+      return res.status(400).json({ errors: errors })
+    }
 
     if(req.body.username) {
       if(req.body.username !== req.user.username) {

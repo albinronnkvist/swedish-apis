@@ -16,7 +16,7 @@ const registerValidation = (data) => {
       .valid('superadmin', 'admin', 'user')
   })
 
-  return schema.validate(data)
+  return schema.validate(data, {abortEarly: false})
 }
 
 const registerRoleValidation = (req) => {
@@ -46,7 +46,7 @@ const loginValidation = (data) => {
       .required()
   })
 
-  return schema.validate(data)
+  return schema.validate(data, {abortEarly: false})
 }
 
 const patchValidation = (data) => {
@@ -60,7 +60,7 @@ const patchValidation = (data) => {
       .valid('superadmin', 'admin', 'user')
   })
 
-  return schema.validate(data)
+  return schema.validate(data, {abortEarly: false})
 }
 
 module.exports.registerValidation = registerValidation
