@@ -112,8 +112,8 @@ router.post("/login", async (req, res) => {
   }
 
   try {
-    let user = await User.findOneByUsername(req.body.username)
-    if(user == null) return res.status(404).json({ error: 'Login failed, wrong username or password' })
+    let user = await User.findOneByEmail(req.body.email)
+    if(user == null) return res.status(404).json({ error: 'Login failed, wrong email or password' })
 
     // Verify password, create claims and token
     if(await passwordHandler.verifyPassword(req.body.password, user.password)) {
@@ -129,7 +129,7 @@ router.post("/login", async (req, res) => {
       return res.status(200).json({ token: token, message: 'Login successful' })
     } 
     else {
-      return res.status(401).json({ error: 'Login failed, wrong username or password' })
+      return res.status(401).json({ error: 'Login failed, wrong email or password' })
     }
   }
   catch (err) {

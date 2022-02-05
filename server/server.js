@@ -7,7 +7,7 @@ const cors = require('cors')
 const mongoSanitize = require('express-mongo-sanitize');
 
 // Connect to DB
-mongoose.connect(process.env.DATABASE_URL, { useNewUrlParser: true })
+mongoose.connect(process.env.DATABASE_URL_LOCAL, { useNewUrlParser: true })
 const db = mongoose.connection
 db.on('error', (error) => console.error(error))
 db.once('open', () => console.log('Connected to DB'))
@@ -37,4 +37,4 @@ app.get("*", (req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' })
 })
 
-app.listen(5000)
+app.listen(process.env.PORT)

@@ -37,9 +37,8 @@ const registerRoleValidation = (req) => {
 
 const loginValidation = (data) => {
   const schema = joi.object({
-    username: joi.string()
-      .min(1)
-      .max(30)
+    email: joi.string()
+      .email()
       .required(),
     password: joi.string()
       // .min(8)
