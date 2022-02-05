@@ -242,7 +242,7 @@ router
     } 
     catch (err) {
       if(err.code === 11000) {
-        return res.status(400).json({ error: 'Username or Email already exists' })
+        return res.status(409).json({ error: 'Username or Email already exists' })
       }
       else {
         return res.status(400).json({ error: err.message })

@@ -14,8 +14,12 @@ categorySchema.statics.findAll = function() {
   return this.find({}, { __v: 0 }).sort({ title: 1 })
 }
 
+categorySchema.statics.findByTitle = function(title) {
+  return this.find({ title: { $regex: title, $options: 'i' } }, {__v: 0}).sort({ title: 1 })
+}
+
 categorySchema.statics.findOneByTitle = function(title) {
-  return this.findOne({ title: title })
+  return this.findOne({ title: { $regex: title, $options: 'i' } })
 }
 
 module.exports = mongoose.model('Category', categorySchema)
