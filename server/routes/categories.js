@@ -37,3 +37,5 @@ router.get("/", async(req, res) => {
 // MIDDLEWARE
 // **********
 // Get category from db when id parameter is used
+
+module.exports = router
