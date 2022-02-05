@@ -66,4 +66,8 @@ entrySchema.statics.findByTitleAndDescription = function(title, description, lim
     .limit(limit)
 }
 
+entrySchema.statics.findRandom = function() {
+  return this.aggregate([{ $sample: { size: 1 } }])
+};
+
 module.exports = mongoose.model('Entry', entrySchema)

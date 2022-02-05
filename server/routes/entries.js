@@ -104,6 +104,17 @@ router.get("/", async (req, res) => {
 })
 
 // GET api/entries/random
+router.get("/random", async (req, res) => {
+  try {
+    const entries = await Entry.findRandom()
+    await addCategoryNames(entries)
+
+    return res.status(200).json({ entry: entries })
+  }
+  catch(err) {
+    return res.status(500).send({ error: err })
+  }
+})
 
 // POST api/entries (auth + superadmin/admin)
 router.post("/", auth.authRequired, async (req, res) => {
