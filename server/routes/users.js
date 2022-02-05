@@ -129,7 +129,7 @@ router.post("/login", async (req, res) => {
       return res.status(200).json({ token: token, message: 'Login successful' })
     } 
     else {
-      return res.status(401).json({ error: 'Login failed, wrong username or password' })
+      return res.status(401).json({ error: 'Login failed, wrong email or password' })
     }
   }
   catch (err) {
