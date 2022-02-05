@@ -60,7 +60,7 @@ userSchema.statics.findOneByEmail = function(email) {
 }
 
 userSchema.statics.findByUsername = function(username) {
-  return this.find({ username: { $regex: username } }, {password: 0}).sort({ username: 1, role: 1 })
+  return this.find({ username: { $regex: username.toLowerCase() } }, {password: 0}).sort({ username: 1, role: 1 })
 }
 
 userSchema.statics.findByRole = function(role) {
@@ -68,7 +68,7 @@ userSchema.statics.findByRole = function(role) {
 }
 
 userSchema.statics.findByUsernameAndRole = function(username, role) {
-  return this.find({ username: { $regex: username }, role: role }, {password: 0}).sort({ username: 1, role: 1 })
+  return this.find({ username: { $regex: username.toLowerCase() }, role: role }, {password: 0}).sort({ username: 1, role: 1 })
 }
 
 module.exports = mongoose.model('User', userSchema)
