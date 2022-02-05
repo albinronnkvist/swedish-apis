@@ -15,8 +15,13 @@ const Category = require('../models/category')
 async function addCategoryNames(entries) {
   for (let ent of entries) {
     if(ent.category !== undefined) {
-      let current = await Category.findById(ent.category)
-      ent.categoryName = current.title
+      if(!mongoose.Types.ObjectId.isValid(ent.category)) {
+        ent.categoryName = "Other"
+      }
+      else {
+        let current = await Category.findById(ent.category)
+        ent.categoryName = current.title
+      }
     }
     else {
       ent.categoryName = "Other"
@@ -32,18 +37,26 @@ async function addCategoryNames(entries) {
 // GET api/entries
 router.get("/", async (req, res) => {
   try {
-    let entries
-    if(req.query.title) {
-      entries = await Entry.findByTitle(req.query.title)
-    }
-    else if(req.query.description) {
-      entries = await Entry.findByDescription(req.query.description)
-    }
-    else if(req.query.title && req.query.description) {
-      entries = await Entry.findByTitleAndDescription(req.query.title, req.query.description)
+    let limit
+    if(req.query.limit) {
+      limit = req.query.limit
     }
     else {
-      entries = await Entry.findAll()
+      limit = 20
+    }
+
+    let entries
+    if(req.query.title) {
+      entries = await Entry.findByTitle(req.query.title, limit)
+    }
+    else if(req.query.description) {
+      entries = await Entry.findByDescription(req.query.description, limit)
+    }
+    else if(req.query.title && req.query.description) {
+      entries = await Entry.findByTitleAndDescription(req.query.title, req.query.description, limit)
+    }
+    else {
+      entries = await Entry.findAll(limit)
     }
 
     // Add categoryName property to objects
