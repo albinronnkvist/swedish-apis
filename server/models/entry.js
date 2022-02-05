@@ -35,4 +35,28 @@ const entrySchema = new mongoose.Schema({
   }
 })
 
+entrySchema.statics.findAll = function() {
+  return this.find({}, { __v: 0 }).sort({ title: 1, description: 1 }).lean()
+}
+
+entrySchema.statics.findByTitle = function(title) {
+  return this.find({ title: { $regex: title, $options: 'i' } }, {__v: 0}).sort({ title: 1, description: 1 }).lean()
+}
+
+entrySchema.statics.findByDescription = function(description) {
+  return this.find({ description: { $regex: description, $options: 'i' } }, {__v: 0}).sort({ title: 1, description: 1 }).lean()
+}
+
+entrySchema.statics.findByTitleAndDescription = function(title, description) {
+  return this.find(
+      { 
+        title: { $regex: title, $options: 'i' },
+        description: { $regex: description, $options: 'i' } 
+      }, 
+      {__v: 0}
+    )
+    .sort({ title: 1, description: 1 })
+    .lean()
+}
+
 module.exports = mongoose.model('Entry', entrySchema)
