@@ -27,8 +27,10 @@ app.use(mongoSanitize())
 // ROUTES
 const userRouter = require('./routes/users')
 const categoryRouter = require('./routes/categories')
+const entryRouter = require('./routes/entries')
 app.use('/users', userRouter)
 app.use('/categories', categoryRouter)
+app.use('/entries', entryRouter)
 
 // Default route
 app.get("*", (req, res) => {
