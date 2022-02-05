@@ -1,4 +1,5 @@
 const joi = require('@hapi/joi')
+joi.objectId = require('joi-objectid')(joi)
 
 const postValidation = (data) => {
   const schema = joi.object({
@@ -11,7 +12,8 @@ const postValidation = (data) => {
       .max(500)
       .required(),
     link: joi.string()
-      .required()
+      .required(),
+    category: joi.objectId()
   })
 
   return schema.validate(data, {abortEarly: false})
