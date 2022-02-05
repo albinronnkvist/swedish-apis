@@ -20,12 +20,39 @@ async function addCategoryNames(entries) {
       }
       else {
         let current = await Category.findById(ent.category)
-        ent.categoryName = current.title
+
+        if(current == null) {
+          ent.categoryName = "Other"
+        }
+        else {
+          ent.categoryName = current.title
+        }
       }
     }
     else {
       ent.categoryName = "Other"
     }
+  }
+}
+
+async function addCategoryNameSingleObj(entry) {
+  if(entry.category !== undefined) {
+    if(!mongoose.Types.ObjectId.isValid(entry.category)) {
+      entry.categoryName = "Other"
+    }
+    else {
+      let current = await Category.findById(entry.category)
+
+      if(current == null) {
+        entry.categoryName = "Other"
+      }
+      else {
+        entry.categoryName = current.title
+      }
+    }
+  }
+  else {
+    entry.categoryName = "Other"
   }
 }
 
@@ -89,16 +116,27 @@ router.post("/", auth.authRequired, async (req, res) => {
   }
 
   try {
-    const entry = new Entry({
+    if(req.body.category) {
+      const category = await Category.findById(req.body.category)
+      if(category == null) {
+        return res.status(400).json({ error: 'Category does not exist' })
+      }
+    }
+
+    const newEntry = new Entry({
       title: req.body.title,
       description: req.body.description,
       link: req.body.link,
       category: req.body.category
     })
 
-    const newEntry = await entry.save()
+    const savedEntry = await newEntry.save()
 
-    return res.status(201).json({ message: 'entry created', entry: newEntry })
+    const entry = savedEntry.toObject()
+
+    await addCategoryNameSingleObj(entry)
+
+    return res.status(201).json({ message: 'Entry created', entry: entry })
   }
   catch (err) {
     return res.status(400).json({ error: err.message })
@@ -114,6 +152,26 @@ router.post("/", auth.authRequired, async (req, res) => {
 // GET api/entries/:id
 // PATCH api/entries/:id (auth + superadmin/admin)
 // DELETE api/entries/:id (auth + superadmin/admin)
+router
+  .route("/:id")
+  .get(async (req, res) => {
+    let entry = req.entry.toObject()
+    await addCategoryNameSingleObj(entry)
+
+    return res.status(200).json({ entry: entry })
+  })
+  .patch()
+  .delete(auth.authRequired, async (req, res) => {
+    if(req.authUser.role !== "superadmin" && req.authUser.role !== "admin") return res.status(403).json({ error: 'Access denied' })
+
+    try {
+      await req.entry.remove()
+      res.status(204).send()
+    }
+    catch (err) {
+      return res.status(500).json({ error: err.message })
+    }
+  })
 
 
 
@@ -121,5 +179,24 @@ router.post("/", auth.authRequired, async (req, res) => {
 // MIDDLEWARE
 // **********
 // Get entry from db when id parameter is used
+router.param("id", async (req, res, next, id) => {
+  if(!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(404).json({ error: 'Entry not found' })
+  }
+
+  let entry
+  try {
+    entry = await Entry.findById(id, {__v: 0})
+    if(entry == null) {
+      return res.status(404).json({ error: 'Entry not found' })
+    }
+  }
+  catch (err) {
+    return res.status(500).json({ error: err.message })
+  }
+
+  req.entry = entry
+  next()
+})
 
 module.exports = router
