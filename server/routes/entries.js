@@ -160,7 +160,44 @@ router
 
     return res.status(200).json({ entry: entry })
   })
-  .patch()
+  .patch(auth.authRequired, async (req, res) => {
+    if(req.authUser.role !== "superadmin" && req.authUser.role !== "admin") return res.status(403).json({ error: 'Access denied' })
+
+    const { error } = entryValidation.patchValidation(req.body)
+    if(error) {
+      let errors = error.details.map(e => e.message)
+      return res.status(400).json({ error: errors })
+    }
+
+    if(req.body.title) {
+      req.entry.title = req.body.title
+    }
+
+    if(req.body.description) {
+      req.entry.description = req.body.description
+    }
+
+    if(req.body.link) {
+      req.entry.link = req.body.link
+    }
+
+    if(req.body.category) {
+      const category = await Category.findById(req.body.category)
+      if(category == null) {
+        return res.status(400).json({ error: 'Category does not exist' })
+      }
+      req.entry.category = req.body.category
+    }
+
+    try {
+      req.entry.updatedAt = Date.now()
+      await req.entry.save()
+      return res.status(204).send()
+    }
+    catch(err) {
+      return res.status(400).json({ error: err.message })
+    }
+  })
   .delete(auth.authRequired, async (req, res) => {
     if(req.authUser.role !== "superadmin" && req.authUser.role !== "admin") return res.status(403).json({ error: 'Access denied' })
 
