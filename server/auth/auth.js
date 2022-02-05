@@ -1,7 +1,7 @@
 require('dotenv').config()
 const jwt = require('jsonwebtoken')
 
-module.exports.auth = function(req, res, next) {
+module.exports.authRequired = (req, res, next) => {
   const authHeader = req.headers['authorization']
   const token = authHeader && authHeader.split(' ')[1]
 
@@ -14,26 +14,30 @@ module.exports.auth = function(req, res, next) {
       return res.status(403).json({ message: 'Access denied' })
     }
 
-    req.auth = user
+    req.authUser = user
     next()
   })
 }
 
-module.exports.token = function(req, res, next) {
+module.exports.authPrivilege = (req, res, next) => {
   const authHeader = req.headers['authorization']
   const token = authHeader && authHeader.split(' ')[1]
 
   if(token == null) {
-    req.token = null
+    req.authUser = null
   }
 
   jwt.verify(token, process.env.SECRET_TOKEN, (err, user) => {
     if(err) {
-      req.token = null
+      req.authUser = null
     }
 
-    req.token = user
+    req.authUser = user
   })
 
   next()
+}
+
+module.exports.createToken = (claims) => {
+  return jwt.sign(claims, process.env.SECRET_TOKEN, { expiresIn: '30m' })
 }

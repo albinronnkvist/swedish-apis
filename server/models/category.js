@@ -9,4 +9,8 @@ const categorySchema = new mongoose.Schema({
   }
 })
 
+categorySchema.statics.findAll = function() {
+  return this.find().sort({ title: 1 })
+}
+
 module.exports = mongoose.model('Category', categorySchema)

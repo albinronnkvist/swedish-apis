@@ -2,13 +2,12 @@ require('dotenv').config()
 
 const express = require('express')
 const router = express.Router()
-const bcrypt = require('bcrypt')
-const jwt = require('jsonwebtoken')
-const User = require('../models/user')
-const auth = require('../auth/auth')
-
 const mongoose = require('mongoose')
+
+const User = require('../models/user')
 const userValidation = require('../validations/userValidations')
+const auth = require('../auth/auth')
+const passwordHandler = require('../auth/passwordHandler')
 
 
 
@@ -32,9 +31,9 @@ async function removeUser(req, res) {
 // ******
 
 // GET api/users
-router.get("/", auth.auth, async (req, res) => {
+router.get("/", auth.authRequired, async (req, res) => {
   try {
-    if(req.auth.role === "superadmin" || req.auth.role === "admin") {
+    if(req.authUser.role === "superadmin" || req.authUser.role === "admin") {
       let users
       if(req.query.username || req.query.role) {
         if(!req.query.username) {
@@ -51,37 +50,36 @@ router.get("/", auth.auth, async (req, res) => {
         users = await User.findAll()
       }
 
-      res.status(200).json({ users: users })
+      return res.status(200).json({ users: users })
     }
     else {
-      res.status(403).json({ error: 'Access denied' })
+      return res.status(403).json({ error: 'Access denied' })
     }
   } 
-  catch {
-    res.status(500).send()
+  catch(err) {
+    return res.status(500).send({ error: err })
   }
 })
 
 // POST api/users/register
-router.post("/register", auth.token, async (req, res) => {
+router.post("/register", auth.authPrivilege, async (req, res) => {
   const { error } = userValidation.registerValidation(req.body)
   if(error) {
     let errors = error.details.map(e => e.message)
     return res.status(400).json({ error: errors })
   }
 
-  const usernameExist = await User.findOneByUsername(req.body.username)
-  if(usernameExist) return res.status(409).json({ error: 'Username already exists' })
-
-  const emailExist = await User.findOneByEmail(req.body.email)
-  if(emailExist) return res.status(409).json({ error: 'Email already exists' })
-
-  const role = await userValidation.registerRoleValidation(req)
-  if(role === "deny") return res.status(403).json({ error: 'Access denied' })
-
   try {
-    const salt = await bcrypt.genSalt()
-    const passwordHash = await bcrypt.hash(req.body.password, salt)
+    const usernameExist = await User.findOneByUsername(req.body.username)
+    if(usernameExist) return res.status(409).json({ error: 'Username already exists' })
+
+    const emailExist = await User.findOneByEmail(req.body.email)
+    if(emailExist) return res.status(409).json({ error: 'Email already exists' })
+
+    const role = await userValidation.registerRoleValidation(req)
+    if(role === "deny") return res.status(403).json({ error: 'Access denied' })
+
+    const passwordHash = await passwordHandler.saltAndHash(req.body.password)
 
     const user = new User({
       username: req.body.username,
@@ -117,8 +115,8 @@ router.post("/login", async (req, res) => {
     let user = await User.findOneByUsername(req.body.username)
     if(user == null) return res.status(404).json({ error: 'Login failed, wrong username or password' })
 
-    // Verify password, create and send token
-    if(await bcrypt.compare(req.body.password, user.password)) {
+    // Verify password, create claims and token
+    if(await passwordHandler.verifyPassword(req.body.password, user.password)) {
       claims = { 
         _id: user._id,
         username: user.username, 
@@ -127,7 +125,7 @@ router.post("/login", async (req, res) => {
         createdAt: user.createdAt
       }
 
-      const token = jwt.sign(claims, process.env.SECRET_TOKEN, { expiresIn: '30m' })
+      const token = auth.createToken(claims)
       return res.status(200).json({ token: token, message: 'Login successful' })
     } 
     else {
@@ -150,12 +148,12 @@ router.post("/login", async (req, res) => {
 // DELETE api/users/:id
 router
   .route("/:id")
-  .get(auth.auth, (req, res) => {
-    if(req.auth.role === "superadmin" || req.auth.role === "admin") {
+  .get(auth.authRequired, (req, res) => {
+    if(req.authUser.role === "superadmin" || req.authUser.role === "admin") {
       return res.status(200).json({ user: req.user })
     }
     else {
-      if(req.auth._id === req.user._id.toString()) {
+      if(req.authUser._id === req.user._id.toString()) {
         return res.status(200).json({ user: req.user })
       }
       else {
@@ -163,7 +161,7 @@ router
       }
     }
   })
-  .patch(auth.auth, async (req, res) => {
+  .patch(auth.authRequired, async (req, res) => {
     const { error } = userValidation.patchValidation(req.body)
     if(error) {
       let errors = error.details.map(e => e.message)
@@ -206,8 +204,8 @@ router
 
     try {
       // If superadmin: edit yourself, other admins and other users. But not other superusers.
-      if(req.auth.role === "superadmin") {
-        if((preRole === "superadmin") && (req.auth._id !== req.user._id.toString())) {
+      if(req.authUser.role === "superadmin") {
+        if((preRole === "superadmin") && (req.authUser._id !== req.user._id.toString())) {
           return res.status(403).json({ error: 'Access denied' })
         }
         else {
@@ -217,11 +215,11 @@ router
         }
       }
       // If admin: edit yourself and others users
-      else if(req.auth.role === "admin") {
+      else if(req.authUser.role === "admin") {
         if(req.user.role === "superadmin") {
           return res.status(403).json({ error: 'Access denied' })
         }
-        else if(preRole === "admin" && (req.auth._id !== req.user._id.toString())) {
+        else if(preRole === "admin" && (req.authUser._id !== req.user._id.toString())) {
           return res.status(403).json({ error: 'Access denied' })
         }
         else {
@@ -232,7 +230,7 @@ router
       }
       // If user: edit only yourself
       else {
-        if((req.user.role === "superadmin") || (req.user.role === "admin") || (req.auth._id !== req.user._id.toString())) {
+        if((req.user.role === "superadmin") || (req.user.role === "admin") || (req.authUser._id !== req.user._id.toString())) {
           return res.status(403).json({ error: 'Access denied' })
         }
         else {
@@ -251,10 +249,10 @@ router
       }   
     }
   })
-  .delete(auth.auth, async (req, res) => {
+  .delete(auth.authRequired, async (req, res) => {
     // If superadmin: delete any admin or user, but not other superadmins.
-    if(req.auth.role === "superadmin") {
-      if(req.user.role === "superadmin" && (req.auth._id !== req.user._id.toString())) {
+    if(req.authUser.role === "superadmin") {
+      if(req.user.role === "superadmin" && (req.authUser._id !== req.user._id.toString())) {
         return res.status(403).json({ error: 'Access denied' })
       }
       else {
@@ -262,8 +260,8 @@ router
       }
     }
     // If admin: delete users only
-    else if(req.auth.role === "admin") {
-      if(req.auth._id === req.user._id.toString()) {
+    else if(req.authUser.role === "admin") {
+      if(req.authUser._id === req.user._id.toString()) {
         await removeUser(req, res)
       }
       else {
@@ -277,7 +275,7 @@ router
     }
     // If user: delete your own account only
     else {
-      if(req.auth._id === req.user._id.toString()) {
+      if(req.authUser._id === req.user._id.toString()) {
         await removeUser(req, res)
       }
       else {

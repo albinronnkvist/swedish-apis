@@ -20,9 +20,9 @@ const registerValidation = (data) => {
 }
 
 const registerRoleValidation = (req) => {
-  if(req.token != null && (req.token.role === "superadmin" || req.token.role === "admin")) {
+  if(req.authUser != null && (req.authUser.role === "superadmin" || req.authUser.role === "admin")) {
     if(req.body.role === "superadmin") {
-      if(req.token.role === "superadmin") {
+      if(req.authUser.role === "superadmin") {
         return req.body.role
       } else {
         return "deny"

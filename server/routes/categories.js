@@ -1,14 +1,24 @@
 const express = require('express')
 const router = express.Router()
-const auth = require('../auth/auth')
-
 const mongoose = require('mongoose')
+
+const auth = require('../auth/auth')
+const Category = require('../models/category')
 
 // ******
 // ROUTES
 // ******
 
 // GET api/categories
+router.get("/", async(req, res) => {
+  try {
+    const categories = await Category.findAll()
+    return res.status(200).json({ categories: categories })
+  }
+  catch(err) {
+    return res.status(500).send({ error: err })
+  }
+})
 // POST api/categories (auth + admin)
 
 
