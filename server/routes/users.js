@@ -5,7 +5,7 @@ const router = express.Router()
 const mongoose = require('mongoose')
 
 const User = require('../models/user')
-const userValidation = require('../validations/userValidations')
+const userValidation = require('../validations/userValidation')
 const auth = require('../auth/auth')
 const passwordHandler = require('../auth/passwordHandler')
 
