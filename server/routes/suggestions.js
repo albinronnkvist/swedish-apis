@@ -7,34 +7,6 @@ const entryValidation = require('../validations/entryValidation')
 const auth = require('../auth/auth')
 const Category = require('../models/category')
 
-
-
-// **************
-// COMMON METHODS
-// **************
-async function addCategoryNames(entries) {
-  for (let ent of entries) {
-    if(ent.category !== undefined) {
-      if(!mongoose.Types.ObjectId.isValid(ent.category)) {
-        ent.categoryName = "Other"
-      }
-      else {
-        let current = await Category.findById(ent.category)
-
-        if(current == null) {
-          ent.categoryName = "Other"
-        }
-        else {
-          ent.categoryName = current.title
-        }
-      }
-    }
-    else {
-      ent.categoryName = "Other"
-    }
-  }
-}
-
 async function addCategoryNameSingleObj(entry) {
   if(entry.category !== undefined) {
     if(!mongoose.Types.ObjectId.isValid(entry.category)) {
@@ -56,69 +28,20 @@ async function addCategoryNameSingleObj(entry) {
   }
 }
 
-
-
-// ******
-// ROUTES
-// ******
-// GET api/entries
+// GET api/suggestions
 router.get("/", async (req, res) => {
   try {
-    let limit
-    if(req.query.limit) {
-      limit = req.query.limit
-    }
-    else {
-      limit = 20
-    }
+    let entries = await Entry.findAllSuggestions()
 
-    let entries
-    if(req.query.title) {
-      entries = await Entry.findByTitle(req.query.title, limit)
-    }
-    else if(req.query.description) {
-      entries = await Entry.findByDescription(req.query.description, limit)
-    }
-    else if(req.query.title && req.query.description) {
-      entries = await Entry.findByTitleAndDescription(req.query.title, req.query.description, limit)
-    }
-    else {
-      entries = await Entry.findAll(limit)
-    }
-
-    // Add categoryName property to objects
-    await addCategoryNames(entries)
-
-    // Filter by category
-    if(req.query.category) {
-      entries = entries.filter(ent => {
-        return ent.categoryName.toLowerCase().includes(req.query.category.toLowerCase())
-      })
-    }
-
-    return res.status(200).json({ entries: entries })
+    return res.status(200).json({ suggestions: entries })
   }
   catch(err) {
     return res.status(500).send({ error: err })
   }
 })
 
-// GET api/entries/random
-router.get("/random", async (req, res) => {
-  try {
-    const entries = await Entry.findRandom()
-    await addCategoryNames(entries)
-
-    return res.status(200).json({ entry: entries })
-  }
-  catch(err) {
-    return res.status(500).send({ error: err })
-  }
-})
-
-// POST api/entries (auth + superadmin/admin)
+// POST api/suggestions (auth)
 router.post("/", auth.authRequired, async (req, res) => {
-  if(req.authUser.role !== "superadmin" && req.authUser.role !== "admin") return res.status(403).json({ error: 'Access denied' })
 
   const { error } = entryValidation.postValidation(req.body)
   if(error) {
@@ -134,19 +57,12 @@ router.post("/", auth.authRequired, async (req, res) => {
       }
     }
 
-    let suggestionValue
-    if(req.body.suggestion) {
-      suggestionValue = req.body.suggestion
-    } else {
-      suggestionValue = false
-    }
-
     const newEntry = new Entry({
       title: req.body.title,
       description: req.body.description,
       link: req.body.link,
       category: req.body.category,
-      suggestion: suggestionValue
+      suggestion: true
     })
 
     const savedEntry = await newEntry.save()
@@ -155,22 +71,13 @@ router.post("/", auth.authRequired, async (req, res) => {
 
     await addCategoryNameSingleObj(entry)
 
-    return res.status(201).json({ message: 'Entry created', entry: entry })
+    return res.status(201).json({ message: 'Suggestion created', suggestion: entry })
   }
   catch (err) {
     return res.status(400).json({ error: err.message })
   }
 })
 
-
-
-// **************
-// DYNAMIC ROUTES
-// **************
-
-// GET api/entries/:id
-// PATCH api/entries/:id (auth + superadmin/admin)
-// DELETE api/entries/:id (auth + superadmin/admin)
 router
   .route("/:id")
   .get(async (req, res) => {
@@ -241,21 +148,21 @@ router
 // Get entry from db when id parameter is used
 router.param("id", async (req, res, next, id) => {
   if(!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(404).json({ error: 'Entry not found' })
+    return res.status(404).json({ error: 'Suggestion not found' })
   }
 
-  let entry
+  let suggestion
   try {
-    entry = await Entry.findById(id, {__v: 0})
-    if(entry == null) {
-      return res.status(404).json({ error: 'Entry not found' })
+    suggestion = await Entry.findById(id, {__v: 0})
+    if(suggestion == null) {
+      return res.status(404).json({ error: 'Suggestion not found' })
     }
   }
   catch (err) {
     return res.status(500).json({ error: err.message })
   }
 
-  req.entry = entry
+  req.suggestion = suggestion
   next()
 })
 

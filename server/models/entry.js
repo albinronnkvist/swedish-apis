@@ -22,6 +22,11 @@ const entrySchema = new mongoose.Schema({
     ref: "Category",
     required: false
   },
+  suggestion: {
+    type: Boolean,
+    required: false,
+    default: true
+  },
   createdAt: {
     type: Date,
     immutable: true,
@@ -36,7 +41,11 @@ const entrySchema = new mongoose.Schema({
 })
 
 entrySchema.statics.findAll = function(limit) {
-  return this.find({}, { __v: 0 }).lean().sort({ title: 1, description: 1 }).limit(limit)
+  return this.find({ suggestion: {$ne: true} }, { __v: 0 }).lean().sort({ title: 1, description: 1 }).limit(limit)
+}
+
+entrySchema.statics.findAllSuggestions = function() {
+  return this.find({ suggestion: true }, { __v: 0 }).lean().sort({ createdAt: 1, title: 1 })
 }
 
 entrySchema.statics.findByTitle = function(title, limit) {
