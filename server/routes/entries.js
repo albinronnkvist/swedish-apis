@@ -5,56 +5,9 @@ const mongoose = require('mongoose')
 const Entry = require('../models/entry')
 const entryValidation = require('../validations/entryValidation')
 const auth = require('../auth/auth')
+const User = require('../models/user')
 const Category = require('../models/category')
-
-
-
-// **************
-// COMMON METHODS
-// **************
-async function addCategoryNames(entries) {
-  for (let ent of entries) {
-    if(ent.category !== undefined) {
-      if(!mongoose.Types.ObjectId.isValid(ent.category)) {
-        ent.categoryName = "Other"
-      }
-      else {
-        let current = await Category.findById(ent.category)
-
-        if(current == null) {
-          ent.categoryName = "Other"
-        }
-        else {
-          ent.categoryName = current.title
-        }
-      }
-    }
-    else {
-      ent.categoryName = "Other"
-    }
-  }
-}
-
-async function addCategoryNameSingleObj(entry) {
-  if(entry.category !== undefined) {
-    if(!mongoose.Types.ObjectId.isValid(entry.category)) {
-      entry.categoryName = "Other"
-    }
-    else {
-      let current = await Category.findById(entry.category)
-
-      if(current == null) {
-        entry.categoryName = "Other"
-      }
-      else {
-        entry.categoryName = current.title
-      }
-    }
-  }
-  else {
-    entry.categoryName = "Other"
-  }
-}
+const categoryNames = require('../other/categoryNames')
 
 
 
@@ -87,16 +40,16 @@ router.get("/", async (req, res) => {
     }
 
     // Add categoryName property to objects
-    await addCategoryNames(entries)
+    let entriesWithCategory = await categoryNames.addCategoryNames(entries)
 
     // Filter by category
     if(req.query.category) {
-      entries = entries.filter(ent => {
+      entriesWithCategory = entriesWithCategory.filter(ent => {
         return ent.categoryName.toLowerCase().includes(req.query.category.toLowerCase())
       })
     }
 
-    return res.status(200).json({ entries: entries })
+    return res.status(200).json({ entries: entriesWithCategory })
   }
   catch(err) {
     return res.status(500).send({ error: err })
@@ -106,10 +59,10 @@ router.get("/", async (req, res) => {
 // GET api/entries/random
 router.get("/random", async (req, res) => {
   try {
-    const entries = await Entry.findRandom()
-    await addCategoryNames(entries)
+    const entry = await Entry.findRandom()
+    let entryWithCategory = await categoryNames.addCategoryNames(entry)
 
-    return res.status(200).json({ entry: entries })
+    return res.status(200).json({ entry: entryWithCategory })
   }
   catch(err) {
     return res.status(500).send({ error: err })
@@ -127,11 +80,16 @@ router.post("/", auth.authRequired, async (req, res) => {
   }
 
   try {
-    if(req.body.category) {
-      const category = await Category.findById(req.body.category)
+    if(req.body.categoryId) {
+      const category = await Category.findById(req.body.categoryId)
       if(category == null) {
         return res.status(400).json({ error: 'Category does not exist' })
       }
+    }
+
+    const user = await User.findById(req.authUser._id)
+    if(user == null) {
+      return res.status(400).json({ error: 'User does not exist' })
     }
 
     let suggestionValue
@@ -145,7 +103,8 @@ router.post("/", auth.authRequired, async (req, res) => {
       title: req.body.title,
       description: req.body.description,
       link: req.body.link,
-      category: req.body.category,
+      categoryId: req.body.categoryId,
+      userId: req.authUser._id,
       suggestion: suggestionValue
     })
 
@@ -153,9 +112,9 @@ router.post("/", auth.authRequired, async (req, res) => {
 
     const entry = savedEntry.toObject()
 
-    await addCategoryNameSingleObj(entry)
+    let entryWithCategory = await categoryNames.addCategoryNameSingleObj(entry)
 
-    return res.status(201).json({ message: 'Entry created', entry: entry })
+    return res.status(201).json({ message: 'Entry created', entry: entryWithCategory })
   }
   catch (err) {
     return res.status(400).json({ error: err.message })
@@ -175,9 +134,9 @@ router
   .route("/:id")
   .get(async (req, res) => {
     let entry = req.entry.toObject()
-    await addCategoryNameSingleObj(entry)
+    let entryWithCategory = await categoryNames.addCategoryNameSingleObj(entry)
 
-    return res.status(200).json({ entry: entry })
+    return res.status(200).json({ entry: entryWithCategory })
   })
   .patch(auth.authRequired, async (req, res) => {
     if(req.authUser.role !== "superadmin" && req.authUser.role !== "admin") return res.status(403).json({ error: 'Access denied' })
@@ -200,12 +159,12 @@ router
       req.entry.link = req.body.link
     }
 
-    if(req.body.category) {
-      const category = await Category.findById(req.body.category)
+    if(req.body.categoryId) {
+      const category = await Category.findById(req.body.categoryId)
       if(category == null) {
         return res.status(400).json({ error: 'Category does not exist' })
       }
-      req.entry.category = req.body.category
+      req.entry.categoryId = req.body.categoryId
     }
 
     if(req.body.suggestion) {
