@@ -13,7 +13,7 @@ const postValidation = (data) => {
       .required(),
     link: joi.string()
       .required(),
-    category: joi.objectId(),
+    categoryId: joi.objectId(),
     suggestion: joi.boolean().strict()
   })
 
@@ -29,7 +29,7 @@ const patchValidation = (data) => {
       .min(1)
       .max(500),
     link: joi.string(),
-    category: joi.objectId(),
+    categoryId: joi.objectId(),
     suggestion: joi.boolean().strict()
   })
 

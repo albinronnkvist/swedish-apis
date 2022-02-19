@@ -5,35 +5,23 @@ const mongoose = require('mongoose')
 const Entry = require('../models/entry')
 const entryValidation = require('../validations/entryValidation')
 const auth = require('../auth/auth')
+const User = require('../models/user')
 const Category = require('../models/category')
+const categoryNames = require('../other/categoryNames')
 
-async function addCategoryNameSingleObj(entry) {
-  if(entry.category !== undefined) {
-    if(!mongoose.Types.ObjectId.isValid(entry.category)) {
-      entry.categoryName = "Other"
-    }
-    else {
-      let current = await Category.findById(entry.category)
 
-      if(current == null) {
-        entry.categoryName = "Other"
-      }
-      else {
-        entry.categoryName = current.title
-      }
-    }
-  }
-  else {
-    entry.categoryName = "Other"
-  }
-}
 
-// GET api/suggestions
-router.get("/", async (req, res) => {
+// ******
+// ROUTES
+// ******
+// GET api/suggestions (auth)
+router.get("/", auth.authRequired, async (req, res) => {
   try {
-    let entries = await Entry.findAllSuggestions()
+    let suggestions = await Entry.findAllSuggestions()
 
-    return res.status(200).json({ suggestions: entries })
+    let suggestionsWithCategory = await categoryNames.addCategoryNames(suggestions)
+
+    return res.status(200).json({ suggestions: suggestionsWithCategory })
   }
   catch(err) {
     return res.status(500).send({ error: err })
@@ -50,28 +38,34 @@ router.post("/", auth.authRequired, async (req, res) => {
   }
 
   try {
-    if(req.body.category) {
-      const category = await Category.findById(req.body.category)
+    if(req.body.categoryId) {
+      const category = await Category.findById(req.body.categoryId)
       if(category == null) {
         return res.status(400).json({ error: 'Category does not exist' })
       }
+    }
+
+    const user = await User.findById(req.authUser._id)
+    if(user == null) {
+      return res.status(400).json({ error: 'User does not exist' })
     }
 
     const newEntry = new Entry({
       title: req.body.title,
       description: req.body.description,
       link: req.body.link,
-      category: req.body.category,
+      categoryId: req.body.categoryId,
+      userId: req.authUser._id,
       suggestion: true
     })
 
     const savedEntry = await newEntry.save()
 
-    const entry = savedEntry.toObject()
+    const suggestion = savedEntry.toObject()
 
-    await addCategoryNameSingleObj(entry)
+    let suggestionWithCategory = await categoryNames.addCategoryNameSingleObj(suggestion)
 
-    return res.status(201).json({ message: 'Suggestion created', suggestion: entry })
+    return res.status(201).json({ message: 'Suggestion created', suggestion: suggestionWithCategory })
   }
   catch (err) {
     return res.status(400).json({ error: err.message })
@@ -80,14 +74,14 @@ router.post("/", auth.authRequired, async (req, res) => {
 
 router
   .route("/:id")
-  .get(async (req, res) => {
-    let entry = req.entry.toObject()
-    await addCategoryNameSingleObj(entry)
+  .get(auth.authRequired, async (req, res) => {
+    let suggestion = req.suggestion.toObject()
+    let suggestionWithCategory = await addCategoryNameSingleObj(suggestion)
 
-    return res.status(200).json({ entry: entry })
+    return res.status(200).json({ suggestion: suggestionWithCategory })
   })
   .patch(auth.authRequired, async (req, res) => {
-    if(req.authUser.role !== "superadmin" && req.authUser.role !== "admin") return res.status(403).json({ error: 'Access denied' })
+    if(req.authUser._id !== req.suggestion.userId.toString()) return res.status(403).json({ error: 'Access denied' })
 
     const { error } = entryValidation.patchValidation(req.body)
     if(error) {
@@ -107,15 +101,17 @@ router
       req.entry.link = req.body.link
     }
 
-    if(req.body.category) {
-      const category = await Category.findById(req.body.category)
+    if(req.body.categoryId) {
+      const category = await Category.findById(req.body.categoryId)
       if(category == null) {
         return res.status(400).json({ error: 'Category does not exist' })
       }
-      req.entry.category = req.body.category
+      req.entry.categoryId = req.body.categoryId
     }
 
     if(req.body.suggestion) {
+      if(req.authUser.role !== "superadmin" && req.authUser.role !== "admin") return res.status(403).json({ error: 'Access denied' })
+
       req.entry.suggestion = req.body.suggestion
     }
 

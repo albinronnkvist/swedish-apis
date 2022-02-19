@@ -17,10 +17,15 @@ const entrySchema = new mongoose.Schema({
     type: String,
     required: [true, "Link required"]
   },
-  category: {
+  categoryId: {
     type: mongoose.Schema.Types.ObjectId, 
     ref: "Category",
     required: false
+  },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "User",
+    required: [true, "User ID required"]
   },
   suggestion: {
     type: Boolean,
